@@ -4,17 +4,18 @@ from cocotb.triggers import RisingEdge, Timer
 
 async def axi_write(dut, addr, data):
 """
-Perform AXI4-Lite write
+Perform AXI4-Lite write: set ui_in and uio_in, wait for done safely
 """
+
+```
 dut.ui_in.value = 0
 dut.uio_in.value = 0
 await RisingEdge(dut.clk)
 
-```
-# Setup write
 dut.ui_in.value = (addr << 1) | 0x1
 dut.uio_in.value = data
 await RisingEdge(dut.clk)
+```
 
 # Deassert start_write
 dut.ui_in.value = (addr << 1)
