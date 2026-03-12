@@ -2,7 +2,6 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-
 async def axi_write(dut, addr, data):
     """
     Perform AXI4-Lite write: set ui_in and uio_in, wait for done safely
@@ -12,55 +11,31 @@ async def axi_write(dut, addr, data):
     await RisingEdge(dut.clk)
 
     # Setup write signals
-    dut.ui_in.value = (addr << 1) | 0x1  # write_addr[1:0] + start_write=1
+    dut.ui_in.value = (addr << 1) | 0x1
     dut.uio_in.value = data
     await RisingEdge(dut.clk)
 
     # Deassert start_write
-    dut.ui_in.value = (addr << 1) | 0x0
+    dut.ui_in.value = (addr << 1)
 
-    # Wait for done, safely handle X/Z
-max_cycles = 2000
-for _ in range(max_cycles):
-
-    val_logic = dut.uo_out.value
-
-    if val_logic.is_resolvable:
-        val = int(val_logic) & 0x1
-    else:
-        val = 0
-
-    if val:
-        break
-
-    await RisingEdge(dut.clk)
-    return True
-
-
-async def axi_read(dut, addr):
-    """
-    Perform AXI4-Lite read: set ui_in, wait for done safely, return data
-    """
-    dut.ui_in.value = 0
-    await RisingEdge(dut.clk)
-
-    # Setup read signals
-    dut.ui_in.value = (addr << 3) | 0x20  # read_addr[1:0] in bits 4:3, start_read=1 at bit 5
-    await RisingEdge(dut.clk)
-
-    # Deassert start_read
-    dut.ui_in.value = (addr << 3) | 0x0
-
-    # Wait for done
+    # Wait for done safely
     max_cycles = 2000
     for _ in range(max_cycles):
-        val = int(dut.uo_out.value) & 0x1
+
+        val_logic = dut.uo_out.value
+
+        if val_logic.is_resolvable:
+            val = int(val_logic) & 0x1
+        else:
+            val = 0
+
         if val:
-            break
+            return True
+
         await RisingEdge(dut.clk)
-    else:
-        dut._log.error("Timeout waiting for DONE in read ❌")
-        return None
+
+    dut._log.error("Timeout waiting for DONE in write ❌")
+    return False
 
     await RisingEdge(dut.clk)
     return int(dut.uio_out.value) & 0xFF
